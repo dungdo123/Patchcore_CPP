@@ -1,0 +1,5 @@
+.\patchcore_detector.exe "D:\PROJECTS\10.Anormaly_Research\3.EfficientAD\EfficientAD\reconstruction_free_diffusion\cpp_patchcore\models\patchcore_extractor.pt" "D:\PROJECTS\1.Datasets\5.Anomalib_datasets\MVTecAD\bottle\train\good" "D:\PROJECTS\1.Datasets\5.Anomalib_datasets\MVTecAD\bottle\test\broken_large"
+
+cmake --build . --config Release --target patchcore_detector patchcore_inference
+
+patchcore_inference.exe "D:\PROJECTS\10.Anormaly_Research\3.EfficientAD\EfficientAD\reconstruction_free_diffusion\cpp_patchcore\models\patchcore_extractor.pt" ./models D:\PROJECTS\1.Datasets\5.Anomalib_datasets\MVTecAD\bottle\test\broken_large\000.png output.jpg --alpha 0.6
