@@ -68,13 +68,22 @@ PatchCoreDetector::PredictionResult PatchCoreDetector::predict(const std::vector
         // Extract features
         torch::Tensor features = feature_extractor_->extractFeatures(test_images[i]);
         
-        // Flatten spatial dimensions
+        // Flatten spatial dimensions following official PatchCore implementation
+        // Official implementation: features.permute(0, 2, 3, 1).contiguous().view(-1, C)
+        // This ensures correct spatial ordering: row-major (height-first, then width)
         int64_t batch_size = features.size(0);
         int64_t channels = features.size(1);
         int64_t height = features.size(2);
         int64_t width = features.size(3);
         
-        torch::Tensor flattened = features.view({batch_size * height * width, channels});
+        std::cout << "  Features shape: [" << batch_size << ", " << channels << ", " << height << ", " << width << "]" << std::endl;
+        
+        // Permute from [B, C, H, W] to [B, H, W, C] to ensure correct spatial ordering
+        // This matches the official PatchCore Python implementation
+        torch::Tensor features_permuted = features.permute({0, 2, 3, 1}).contiguous();
+        
+        // Flatten to [B*H*W, C] preserving spatial order: row-major (each row sequentially)
+        torch::Tensor flattened = features_permuted.view({batch_size * height * width, channels});
         
         std::cout << "  Flattened features shape: [" << flattened.size(0) << ", " << flattened.size(1) << "]" << std::endl;
         std::cout << "  Computing anomaly scores..." << std::endl;
@@ -85,9 +94,16 @@ PatchCoreDetector::PredictionResult PatchCoreDetector::predict(const std::vector
         std::cout << "  Anomaly scores computed. Shape: [" << scores.size(0) << "]" << std::endl;
         
         // Reshape back to spatial dimensions
-        // Ensure scores are contiguous before reshaping to preserve correct spatial layout
+        // Scores are in row-major order: first all pixels of row 0, then row 1, etc.
         torch::Tensor scores_contiguous = scores.contiguous();
-        torch::Tensor spatial_scores = scores_contiguous.view({height, width});
+        torch::Tensor spatial_scores = scores_contiguous.view({batch_size, height, width});
+        // Remove batch dimension if batch_size == 1
+        if (batch_size == 1) {
+            spatial_scores = spatial_scores.squeeze(0);
+        } else {
+            // For multi-image batches, take the first image's scores
+            spatial_scores = spatial_scores[0];
+        }
         
         // Verify spatial layout is correct (debug output)
         std::cout << "  Spatial scores min: " << spatial_scores.min().item<float>() 
